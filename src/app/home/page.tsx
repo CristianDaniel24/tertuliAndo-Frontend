@@ -4,13 +4,11 @@ import { Button } from "@/components/ui/button";
 import {
   Plus,
   MessageCircle,
-  Settings,
   Hash,
-  Users,
   Coffee,
-  Paperclip,
   Smile,
   Send,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { roomService } from "@/service/room.service";
@@ -19,6 +17,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { signinService } from "@/service/signin.service";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { sessionUtils } from "../utils/session.utils";
 
 const mensajesEjemplo = [
   {
@@ -45,33 +47,16 @@ const mensajesEjemplo = [
     timestamp: "Hoy a las 10:35 AM",
     iniciales: "CL",
   },
-  {
-    id: 4,
-    usuario: "Ana Martínez",
-    avatar: "/placeholder.svg?height=40&width=40",
-    mensaje: "Ya lo revisé, se ve bien! 👍",
-    timestamp: "Hoy a las 10:37 AM",
-    iniciales: "AM",
-  },
-  {
-    id: 5,
-    usuario: "Juan Pérez",
-    avatar: "/placeholder.svg?height=40&width=40",
-    mensaje: "Perfecto, entonces lo mergeo en la tarde",
-    timestamp: "Hoy a las 10:40 AM",
-    iniciales: "JP",
-  },
 ];
 
 export default function SalasPage() {
-  const [salaSeleccionada, setSalaSeleccionada] = useState<number | null>(1);
+  const [salaSeleccionada, setSalaSeleccionada] = useState<number | null>(null);
   const [rooms, setRooms] = useState<IRoom[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mensaje, setMensaje] = useState("");
-
+  const [client, setClient] = useState<any>(null);
   const salaActual = rooms.find((sala) => sala.id === salaSeleccionada);
-
+  const [mensaje, setMensaje] = useState("");
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -80,16 +65,37 @@ export default function SalasPage() {
         setRooms(data);
       } catch (error) {
         console.error(error);
-      } finally {
-        setLoading(false);
       }
     };
-
     fetchRooms();
   }, []);
 
+  useEffect(() => {
+    const clientFromSession = sessionUtils.getPersonFromSession();
+    setClient(clientFromSession);
+  }, []);
+
+  const handleLogout = () => {
+    signinService.logOut();
+    router.push("/auth/signin");
+    toast.success("Cerraste sesión correctamente!");
+  };
+
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* Botón fijo de cerrar sesión en la esquina superior derecha */}
+      <div className="absolute top-4 right-4 z-50">
+        <Button
+          onClick={handleLogout}
+          variant="ghost"
+          size="sm"
+          className="cursor-pointer"
+        >
+          <LogOut className="h-4 w-4 text-red-500 mr-1" />
+          <span className="text-xs text-red-500">Cerrar sesión</span>
+        </Button>
+      </div>
+
       {/* Sidebar - Lista de Salas */}
       <div className="w-60 bg-gray-800 text-white flex flex-col">
         {/* Header del servidor */}
@@ -149,22 +155,15 @@ export default function SalasPage() {
           <Avatar className="h-8 w-8">
             <AvatarImage src="/placeholder.svg?height=32&width=32" />
             <AvatarFallback className="bg-blue-600 text-white text-xs">
-              TU
+              {client?.name?.trim().charAt(0).toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
-              Tu Usuario
+              {client?.name}
             </p>
             <p className="text-xs text-gray-400">En línea</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-400 hover:text-white p-1"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -218,15 +217,6 @@ export default function SalasPage() {
                   {salaActual?.name}
                 </h1>
                 <Separator orientation="vertical" className="h-6" />
-                <p className="text-sm text-gray-500">Sala de chat del equipo</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">
-                  <Users className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
@@ -242,7 +232,7 @@ export default function SalasPage() {
                       >
                         <Avatar className="h-10 w-10">
                           <AvatarImage src={msg.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-blue-600 text-white text-sm">
+                          <AvatarFallback className="bg-amber-500 text-white text-sm">
                             {msg.iniciales}
                           </AvatarFallback>
                         </Avatar>
@@ -296,9 +286,6 @@ export default function SalasPage() {
                     }}
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                       <Smile className="h-4 w-4" />
                     </Button>

@@ -9,7 +9,7 @@ class SessionUtils {
 
     try {
       const parsed = JSON.parse(cookie);
-      return parsed.person as IClient;
+      return parsed as IClient;
     } catch (error) {
       console.error("Error al parsear la cookie:", error);
       return {} as IClient;

@@ -1,7 +1,8 @@
+import { cookieUtils } from "@/app/utils/cookies.utils";
 import iAxios from "@/lib/axios-instance-utils";
 import { utils } from "@/lib/utils";
 import { ILoginRequest } from "@/types/ILoginRequest";
-import { IClient } from "@/types/client-interface";
+import { IAuthResponse } from "@/types/auth-response-interface";
 
 class SigninService {
   private readonly url: string;
@@ -10,9 +11,24 @@ class SigninService {
     this.url = `${utils.baseUrl}/auth`;
   }
 
-  async logIn(values: ILoginRequest): Promise<IClient> {
-    const res = await iAxios.post<IClient>(`${this.url}`, values);
+  async logIn(values: ILoginRequest) {
+    const res = await iAxios.post<IAuthResponse>(`${this.url}`, values);
+
+    this.createSession(res.data);
+
     return res.data;
+  }
+
+  private createSession(client: IAuthResponse) {
+    cookieUtils.setCookie({
+      name: "session",
+      value: JSON.stringify(client),
+      days: 1,
+    });
+  }
+
+  logOut() {
+    cookieUtils.deleteCookie("session");
   }
 }
 

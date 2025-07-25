@@ -21,39 +21,17 @@ import { signinService } from "@/service/signin.service";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { sessionUtils } from "../utils/session.utils";
-
-const mensajesEjemplo = [
-  {
-    id: 1,
-    usuario: "Juan Pérez",
-    avatar: "/placeholder.svg?height=40&width=40",
-    mensaje: "¡Hola a todos! ¿Cómo están?",
-    timestamp: "Hoy a las 10:30 AM",
-    iniciales: "JP",
-  },
-  {
-    id: 2,
-    usuario: "María García",
-    avatar: "/placeholder.svg?height=40&width=40",
-    mensaje: "Todo bien por aquí, trabajando en el nuevo proyecto",
-    timestamp: "Hoy a las 10:32 AM",
-    iniciales: "MG",
-  },
-  {
-    id: 3,
-    usuario: "Carlos López",
-    avatar: "/placeholder.svg?height=40&width=40",
-    mensaje: "¿Alguien puede revisar el PR que subí ayer?",
-    timestamp: "Hoy a las 10:35 AM",
-    iniciales: "CL",
-  },
-];
+import { roomClientService } from "@/service/room-client.service";
+import { IRoomClient } from "@/types/room-client-interface";
+import { messageService } from "@/service/message.service";
+import { IMessage } from "@/types/message-interface";
 
 export default function SalasPage() {
   const [salaSeleccionada, setSalaSeleccionada] = useState<number | null>(null);
   const [rooms, setRooms] = useState<IRoom[]>([]);
   const [client, setClient] = useState<any>(null);
   const salaActual = rooms.find((sala) => sala.id === salaSeleccionada);
+  const [mensajes, setMensajes] = useState<IMessage[]>([]);
   const [mensaje, setMensaje] = useState("");
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -75,6 +53,52 @@ export default function SalasPage() {
     setClient(clientFromSession);
   }, []);
 
+  useEffect(() => {
+    const handleRoomClient = async () => {
+      if (!client?.id || !salaSeleccionada) return;
+
+      const roomClient = {
+        room: { id: salaSeleccionada },
+        client: { id: client.id },
+      } as IRoomClient;
+
+      try {
+        const messagesRoom = await roomClientService.create(roomClient);
+        setMensajes(messagesRoom);
+      } catch (error) {
+        console.log("Error al unir cliente a sala:", error);
+      }
+    };
+
+    handleRoomClient();
+  }, [salaSeleccionada, client]);
+
+  useEffect(() => {
+    messageService.connect(() => {
+      if (salaSeleccionada) {
+        messageService.subscribeToRoom(salaSeleccionada, (nuevoMensaje) => {
+          setMensajes((prev) => [...prev, nuevoMensaje]);
+        });
+      }
+    });
+  }, [salaSeleccionada]);
+
+  const handleEnviarMensaje = () => {
+    if (!mensaje.trim() || !salaSeleccionada || !client) {
+      toast.error("Algo ocurrio!, intentalo de nuevo");
+      return;
+    }
+
+    const nuevoMensaje = {
+      text: mensaje,
+      senderClient: client,
+      room: { id: salaSeleccionada },
+    } as IMessage;
+
+    messageService.sendMessage(nuevoMensaje);
+    setMensaje("");
+  };
+
   const handleLogout = () => {
     signinService.logOut();
     router.push("/auth/signin");
@@ -82,9 +106,9 @@ export default function SalasPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 relative">
+    <div className="flex bg-gray-100 relative min-h-screen ml-60">
       {/* Botón fijo de cerrar sesión en la esquina superior derecha */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-2 right-4 z-50">
         <Button
           onClick={handleLogout}
           variant="ghost"
@@ -97,7 +121,7 @@ export default function SalasPage() {
       </div>
 
       {/* Sidebar - Lista de Salas */}
-      <div className="w-60 bg-gray-800 text-white flex flex-col">
+      <div className="w-60 bg-gray-800 text-white flex flex-col fixed top-0 left-0 h-screen z-40">
         {/* Header del servidor */}
         <div className="p-4 border-b border-gray-700">
           <h2 className="font-semibold text-white">TertuliAndo</h2>
@@ -168,7 +192,7 @@ export default function SalasPage() {
       </div>
 
       {/* Área principal del chat */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col ">
         {rooms.length === 0 ? (
           /* Estado: No hay salas */
           <div className="flex-1 flex items-center justify-center bg-white">
@@ -209,94 +233,139 @@ export default function SalasPage() {
         ) : (
           /* Chat activo */
           <>
-            {/* Header del chat */}
-            <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Hash className="h-5 w-5 text-gray-500" />
-                <h1 className="font-semibold text-gray-900">
-                  {salaActual?.name}
-                </h1>
-                <Separator orientation="vertical" className="h-6" />
-              </div>
-            </div>
-
-            {/* Área de mensajes */}
-            <ScrollArea className="flex-1 bg-white">
-              <div className="p-4">
-                {mensajesEjemplo.length > 0 ? (
-                  <div className="space-y-4">
-                    {mensajesEjemplo.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className="flex gap-3 hover:bg-gray-50 p-2 rounded"
-                      >
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={msg.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-amber-500 text-white text-sm">
-                            {msg.iniciales}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-gray-900">
-                              {msg.usuario}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {msg.timestamp}
-                            </span>
-                          </div>
-                          <p className="text-gray-700 text-sm leading-relaxed">
-                            {msg.mensaje}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* Estado: No hay mensajes en la sala */
-                  <div className="flex flex-col items-center justify-center h-full py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <Coffee className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      ¡Qué silencio por aquí!
-                    </h3>
-                    <p className="text-gray-600 text-center max-w-sm">
-                      Sé el primero en enviar un mensaje en #{salaActual?.name}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
-            {/* Input para escribir mensajes */}
-            <div className="bg-white border-t border-gray-200 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative">
-                  <Input
-                    placeholder={`Mensaje #${salaActual?.name}`}
-                    value={mensaje}
-                    onChange={(e) => setMensaje(e.target.value)}
-                    className="pr-20"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        // Aquí iría la lógica para enviar el mensaje
-                        setMensaje("");
-                      }
-                    }}
-                  />
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Smile className="h-4 w-4" />
-                    </Button>
-                  </div>
+            <div className="flex flex-col h-screen">
+              {/* Header del chat */}
+              <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <Hash className="h-5 w-5 text-gray-500" />
+                  <h1 className="font-semibold text-gray-900">
+                    {salaActual?.name}
+                  </h1>
+                  <Separator orientation="vertical" className="h-6" />
                 </div>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={!mensaje.trim()}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+              </div>
+
+              {/* Área de mensajes */}
+              <div className="flex-1 overflow-hidden">
+                <ScrollArea className="h-full px-4 py-6 bg-gray-50">
+                  <div className=" ">
+                    {mensajes.length > 0 ? (
+                      <div className="space-y-4">
+                        {mensajes.map((msg) => {
+                          const esMio = msg.senderClient?.id === client?.id;
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex gap-2 px-2 ${
+                                esMio ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              {!esMio && (
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="bg-amber-500 text-white text-sm">
+                                    {msg.senderClient?.name
+                                      ?.charAt(0)
+                                      .toUpperCase() ?? "?"}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+
+                              <div
+                                className={`max-w-[700px] rounded-2xl p-3 text-sm relative shadow ${
+                                  esMio
+                                    ? "bg-blue-500 text-white rounded-br-none"
+                                    : "bg-gray-100 text-gray-900 rounded-bl-none"
+                                }`}
+                              >
+                                <div className="mb-1 font-medium">
+                                  {esMio ? "Tú" : msg.senderClient?.name}
+                                </div>
+
+                                <div className="break-words whitespace-pre-line">
+                                  {msg.text}
+                                </div>
+
+                                <span
+                                  className={`block text-[13px] mt-2 text-right ${
+                                    esMio ? "text-white/70" : "text-gray-500"
+                                  }`}
+                                >
+                                  {msg.sentAt
+                                    ? new Date(msg.sentAt).toLocaleTimeString(
+                                        "es-CO",
+                                        {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          hour12: true,
+                                        }
+                                      )
+                                    : "Ahora"}
+                                </span>
+                              </div>
+
+                              {esMio && (
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                                    {client?.name?.charAt(0).toUpperCase() ??
+                                      "?"}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Estado: No hay mensajes en la sala
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                          <Coffee className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          ¡Qué silencio por aquí!
+                        </h3>
+                        <p className="text-gray-600 text-center max-w-sm">
+                          Sé el primero en enviar un mensaje en #
+                          {salaActual?.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Input para escribir mensajes */}
+              <div className="bg-white border-gray-200 p-6 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 relative">
+                    <Input
+                      value={mensaje}
+                      onChange={(e) => setMensaje(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleEnviarMensaje();
+                        }
+                      }}
+                      placeholder={`Mensaje #${salaActual?.name}`}
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 cursor-pointer"
+                      >
+                        <Smile className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleEnviarMensaje}
+                    className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                    disabled={!mensaje.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </>

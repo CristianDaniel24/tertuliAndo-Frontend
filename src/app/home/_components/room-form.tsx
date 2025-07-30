@@ -34,7 +34,7 @@ export default function RoomForm({
     }
 
     try {
-      const created = await roomService.create({ name: newRoom });
+      const created = await roomService.createRoom({ name: newRoom });
       onRoomCreated(created);
       toast.success("Sala creada exitosamente");
       setNewRoom("");

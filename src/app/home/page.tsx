@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Smile, Send, LogOut } from "lucide-react";
+import { Send, LogOut } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { roomService } from "@/service/room.service";
 import RoomForm from "./_components/room-form";
@@ -118,18 +118,15 @@ export default function SalasPage() {
         </div>
         <Sidebar
           rooms={rooms}
-          setRooms={setRooms}
           salaSeleccionada={salaSeleccionada}
           setSalaSeleccionada={setSalaSeleccionada}
-          open={open}
           setOpen={setOpen}
           client={client}
-          setClient={setClient}
         />
       </div>
 
       {/* Contenedor principal desplazado por el sidebar */}
-      <div className="flex flex-col bg-gray-100 min-h-screen ml-60 relative">
+      <div className="flex flex-col h-screen ml-60 overflow-hidden bg-gray-100">
         {/* Botón fijo de cerrar sesión en la esquina superior derecha */}
         <div className="absolute top-2 right-4 z-50">
           <Button
@@ -144,51 +141,40 @@ export default function SalasPage() {
         </div>
 
         {/* Área principal del chat */}
-        <ChatArea
-          rooms={rooms}
-          setRooms={setRooms}
-          open={open}
-          setOpen={setOpen}
-          salaSeleccionada={salaSeleccionada}
-          setSalaSeleccionada={setSalaSeleccionada}
-          salaActual={salaActual}
-          mensajes={mensajes}
-          setMensajes={setMensajes}
-          client={client}
-          mensajesEndRef={mensajesEndRef}
-        />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <ChatArea
+            rooms={rooms}
+            setOpen={setOpen}
+            salaSeleccionada={salaSeleccionada}
+            salaActual={salaActual}
+            mensajes={mensajes}
+            client={client}
+            mensajesEndRef={mensajesEndRef}
+          />
 
-        {/* Input para escribir mensajes */}
-        <div className="bg-white border-gray-200 p-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
-              <Input
-                value={mensaje}
-                onChange={(e) => setMensaje(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleEnviarMensaje();
-                  }
-                }}
-                placeholder={`Mensaje #${salaActual?.name}`}
-              />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 cursor-pointer"
-                >
-                  <Smile className="h-4 w-4" />
-                </Button>
+          {/* Input para escribir mensajes */}
+          <div className="bg-white border-t border-gray-200 p-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <Input
+                  value={mensaje}
+                  onChange={(e) => setMensaje(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleEnviarMensaje();
+                    }
+                  }}
+                  placeholder={`Mensaje #${salaActual?.name}`}
+                />
               </div>
+              <Button
+                onClick={handleEnviarMensaje}
+                className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                disabled={!mensaje.trim()}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              onClick={handleEnviarMensaje}
-              className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
-              disabled={!mensaje.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
